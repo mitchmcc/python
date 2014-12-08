@@ -1,0 +1,5 @@
+CT_SUCCESS                  = 0
+CT_ERROR_BASE               = -1
+CT_DATABASE_NOT_FOUND       = (CT_ERROR_BASE - 1)
+CT_DATABASE_CONNECT_ERROR   = (CT_ERROR_BASE - 2)
+CT_LICENSE_EXPIRED          = (CT_ERROR_BASE - 3)
