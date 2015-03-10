@@ -1,0 +1,69 @@
+CREATE TABLE calls (
+reportNum 	VARCHAR(32) NOT NULL, 
+occurredAt 	TIMESTAMP NOT NULL, 
+priority	VARCHAR(16) DEFAULT NULL, 
+problem		VARCHAR(64) NOT NULL,
+address1	VARCHAR(64) DEFAULT NULL,
+address2	VARCHAR(64) DEFAULT NULL,
+address3	VARCHAR(64) DEFAULT NULL,
+city		VARCHAR(64) DEFAULT NULL,
+units		VARCHAR(16) DEFAULT NULL,
+PRIMARY KEY (reportNum)
+);
+
+
+CREATE TABLE users (
+userId       SMALLINT NOT NULL AUTO_INCREMENT,
+firstName 	 VARCHAR(32) NOT NULL, 
+lastName 	 VARCHAR(32) NOT NULL, 
+emailAddress VARCHAR(64) NOT NULL,
+minPriority	 VARCHAR(16) DEFAULT NULL, 
+wildcard	 VARCHAR(32) DEFAULT NULL, 
+city		 VARCHAR(64) NOT NULL,
+PRIMARY KEY (userId)
+);
+
+INSERT into users (firstName, lastName, emailAddress, minPriority, city) VALUES("Mitch", "McConnell", "mitch@mitchellmcconnell.net", "LOW", "LARGO");
+
+
+INSERT into users (firstName, lastName, emailAddress, wildcard, city) VALUES("Mitch", "McConnell", "mjmlem82@gmail.com", "ASSAULT", "COUNTY");
+
+INSERT into users (firstName, lastName, emailAddress, minPriority, wildcard, city) VALUES("Lauren", "McConnell", "laurenmcconnell@yahoo.com", "HIGH", "BURGLARY", "CLEARWATER");
+
+INSERT into users (firstName, lastName, emailAddress, wildcard, city) VALUES("Lauren", "McConnell", "laurenmcconnell@yahoo.com", "DOMESTIC", "CLEARWATER");
+
+INSERT into users (firstName, lastName, emailAddress, minPriority, wildcard, city) VALUES("Earl", "McConnell", "mitchmcc@yahoo.com", "HIGH,MEDIUM", "BURGLARY", "CLEARWATER");
+
+INSERT into users (firstName, lastName, emailAddress, minPriority, city) VALUES("Pearl", "McConnell", "mitchmcc@yahoo.com", "HIGH,MEDIUM","COUNTY");
+
+
+INSERT into calls VALUES("SO12-378854","2012-10-04 9:59", "LOW", "S3", "ASSIST OTHER AGENCY", "359 12TH AVE", "", "", "INDIAN ROCKS BEACH", "IR2A");
+
+LOAD DATA INFILE 'c:\PCSOCALLS_20121004.csv' IGNORE INTO TABLE calls FIELDS TERMINATED BY ',';
+
+
+mysql --user=root --password=spam5312 --database=pcsocalls --execute="LOAD DATA INFILE 'C:\\Documents and Settings\\mjmcconnell\\My Documents\\src\\python\\pcso\\PCSOCALLS_20121019_09.csv' IGNORE INTO TABLE calls FIELDS TERMINATED BY ',';"
+
+
+// How to script above:
+
+mysql -uroot -pspam5312 pcsocalls < loadpcso.sql
+
+select * from calls where priority != 'LOW';
+
+select * from calls where city = 'DUNEDIN';
+
+select * from calls where city = 'DUNEDIN' and priority in ('S1','S9','S3');
+
+select count(*) from calls where city = 'DUNEDIN' and priority in ('S1','S9','S3');
+
+select * from calls where occurredAt > '2012-10-04' and occurredAt < '2012-10-05';
+
+select * from calls where occurredAt > '2012-10-04 08:00' and occurredAt < '2012-10-04 10:00';
+
+// Full 24 hours
+select * from calls where occurredAt > '2012-10-04 00:00:00' and occurredAt < '2012-10-04 23:59:59';
+ 
+select * from calls where problem like '%ASSIST%';
+
+select * from calls order by occurredAt;
