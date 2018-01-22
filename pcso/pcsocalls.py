@@ -6,6 +6,8 @@
 #   Version        Date     Who     Description
 #
 #   01.00.11      12/07/17  mjm     Fixed wildcard bug
+#   01.00.12      12/08/17  mjm     Started adding 'calls' database support
+#   01.00.13      01/19/18  mjm     Added link to Google map
 #
 #------------------------------------------------------------------------------------------------
 
@@ -30,10 +32,32 @@ import sqlite3
 import signal
  
 def signal_handler(signal, frame):
-        print('Ctrl+C handler: ')
-        print 'Entering pdb...'
-        pdb.set_trace()
-        #sys.exit(0)
+  global verbose
+  global debug
+  
+  print('Ctrl+C handler: ')
+  #print 'Entering pdb...'
+  pdb.set_trace()
+
+  t = time.localtime()
+      
+  elapsedTime = thisTime - startTime
+
+  logging.info("Uptime: %s" % (elapsedTime))
+
+  text = raw_input("Enter command (p = enter pdb, c = continue, v = verbose, d = debug, q = quit): ")
+  if text[0] == 'p':
+    pdb.set_trace()
+  elif text[0] == 'q':
+    sys.exit(0);
+  elif text[0] == 'v':
+    verbose = 1
+  elif text[0] == 'd':
+    debug = 1
+  else:
+    print "Continuing"
+
+  #sys.exit(0)
 
 def usage():
   logging.info("Usage:")
@@ -49,7 +73,7 @@ def usage():
   logging.info("  -c  Save data as csv file")
   logging.info("  -h  logging.info(this help message")
 
-version = "01.00.11"
+version = "01.00.13"
 
 dumpTable = 0
 delay =   300
@@ -70,6 +94,8 @@ gmailAccount = ""
 gmailPassword = ""
 maxEntries = 32
 databaseName = 'pcsocalls.db'
+useDb = False
+showMap = True
 
 # Note: may not be complete
 
@@ -118,7 +144,8 @@ problemNameList = [
 # set up logging the way we want it
 logging.basicConfig(format='%(asctime)s %(message)s',level=logging.INFO)
 
-logging.info("PCSOCalls version %s starting up",version)
+if verbose == 1:
+  logging.info("PCSOCalls version %s starting up",version)
 
 sys.exit
 
@@ -131,7 +158,7 @@ fromAddr = 'mitchmcconnell2@outlook.com'
 signal.signal(signal.SIGINT, signal_handler)
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "n:m:i:p:s:du:w:vhecD:", ["help", "output="])
+    opts, args = getopt.getopt(sys.argv[1:], "n:m:i:p:s:du:w:vhecD", ["help", "output="])
 except getopt.GetoptError, err:
     # logging.info(help information and exit:
     logging.info(str(err)) # will logging.infosomething like "option -a not recognized"
@@ -164,9 +191,9 @@ for o, a in opts:
         if debug == 1:
             logging.info("Got Gmail password from command line: ",gmailPassword)
     elif o == "-D":
-        delay = a
+        useDb = True
         if debug == 1:
-            logging.info("Got delay from command line: ",delay)
+            logging.info("Set useDb from command line")
     elif o == "-p":
         PORT = a
         if debug == 1:
@@ -234,12 +261,6 @@ while finished == 0:
     thisTime = datetime.datetime.now()
     thisHour = thisTime.hour
 
-    # every hour, print how long we have been up (we skip the first time)
-    
-    if ((run % 12) == 0) and (verbose == 1) and (run != 1):
-      elapsedTime = thisTime - startTime
-      logging.info("Uptime: %s", elapsedTime)
-		
     # Check to see if we need to flush our output file and start a new one
 
     if debug == 1:
@@ -286,11 +307,13 @@ while finished == 0:
 
             for sp in spanList:
                 #print "Span: ",sp
-                print "Span Id: ",sp['id'], "Text: ",sp.get_text()	
+                if debug == 1:
+                  print "Span Id: ",sp['id'], "Text: ",sp.get_text()	
                 #pdb.set_trace()
 
                 if "report" in sp['id']:
                   reportNum = sp.get_text().strip()
+                  numFound += 1
 
                 if "R_time" in sp['id']:
                   occurredAt = sp.get_text().strip() 
@@ -311,29 +334,66 @@ while finished == 0:
                   unit = sp.get_text().strip()
 
                 if reportNum != None:
-                  print "Report: ",reportNum
-                  numFound += 1
+                  if debug == 1:
+                    print "Report: ",reportNum
                   key = reportNum
                 if occurredAt != None:
-                  print "Occurred: ",occurredAt
+                  if debug == 1:
+                    print "Occurred: ",occurredAt
                 if problem != None:
-                  print "Problem: ",problem
+                  if debug == 1:
+                    print "Problem: ",problem
                 if locality != None:
-                  print "Locality: ",locality
+                  if debug == 1:
+                    print "Locality: ",locality
                 if address1 != None:
-                  print "Address: ",address1
+                  if debug == 1:
+                    print "Address: ",address1
                 if unit != None:
-                  print "Unit: ",unit  
+                  if debug == 1:
+                    print "Unit: ",unit  
 
-        print "---------------------------------------------------\n"         	
+        if debug == 1:
+          print "---------------------------------------------------\n"         	
 
         #pdb.set_trace()
 
         if reportNum == None:
-          print ">>>>>> continuing <<<<<<"
+          if debug == 1:
+            print ">>>>>> continuing <<<<<<"
           continue
 
-        print "ReportNum: ",reportNum,", Problem: ",problem, ", Where: ", occurredAt, ", Address1: ",address1
+        if debug == 1:
+          print "ReportNum: ",reportNum,", Problem: ",problem, ", Where: ", occurredAt, ", Address1: ",address1
+
+        occurredDatetime = datetime.datetime.strptime(occurredAt, '%m/%d/%Y %H:%M %p')
+        occurredAtSql = occurredDatetime.isoformat()
+
+        dupFound = False
+
+        if useDb:
+          insertData = (key, occurredAtSql, problem, address1, locality, unit);
+
+          #pdb.set_trace()
+          insertSql = ''' INSERT INTO calls (reportNum, occurredAt, problem, address, city, unit) VALUES (?, ?, ?, ?, ?, ?) '''
+ 
+          cur = conn.cursor()
+
+          try:
+            cur.execute(insertSql, insertData)    
+            conn.commit()      
+          except sqlite3.IntegrityError as oe:
+            dupFound = True
+            # we know we can get duplicates, but we don't consider that a real error
+            if debug == 1:
+              print "WARNING: insert failed - IntegrityError, key: "
+            pass
+          except sqlite3.OperationalError as oe:
+            print "ERROR: insert failed - OperationalError"
+            print(oe)
+          except e:
+            print "ERROR: insert failed - other exception"
+            print(e)
 
         # this prevents us from sending multiple emails for the same problem (reportNum)
 
@@ -341,12 +401,10 @@ while finished == 0:
             masterTable[key] = key
             numEntries += 1
 
-            print "setting masterTable key: ",key
+            if debug == 1:
+              print "setting masterTable key: ",key
 
             #pdb.set_trace()
-            occurredDatetime = datetime.datetime.strptime(occurredAt, '%m/%d/%Y %H:%M %p')
-            #occurredAtSql = occurredAt.rstrip(" AM").rstrip(" PM")
-            occurredAtSql = occurredDatetime.isoformat()
 
             keyTable[key] = numEntries
 
@@ -355,12 +413,14 @@ while finished == 0:
                     fw = csv.writer(csvfile, delimiter=',')
                     fw.writerow(map(str,[reportNum,problem,occurredAtSql,address1,locality,unit]))
                     
-                #if (debug == 1) or (verbose == 1):
-                logging.info("Inserted CSV row, index: %s",key)
+                if (debug == 1) or (verbose == 1):
+                  logging.info("Inserted CSV row, index: %s",key)
 
             #pdb.set_trace()
 
-            if sendEmail == 1:
+            # Note: if useDb is true, and we found an entry (above) for the reportNum key, we won't send again
+
+            if (not dupFound) and (sendEmail == 1):
                 #logging.info("Sending email set.... locality = %s, problem = %s",locality,problem)
                   
                 problemHit = 0
@@ -380,7 +440,8 @@ while finished == 0:
 
                   #pdb.set_trace()
 
-                  logging.info("Raw SQL data: %s %s %s %s %s %s" % (row[0], row[1], row[2], row[3], row[4], row[5]))
+                  if debug == 1:
+                    logging.info("Raw SQL data: %s %s %s %s %s %s" % (row[0], row[1], row[2], row[3], row[4], row[5]))
 
                   firstName = row[0]
                   lastName = row[1]
@@ -394,9 +455,9 @@ while finished == 0:
                   PROBLEMBODY = None
                   BODYTEXT = ""
 
-                  #if debug == 1:
-                  logging.info("ReportNum: %s",reportNum)
-                  logging.info("problem: %s,  wildcard: %s",problem, wildcard)
+                  if debug == 1:
+                    logging.info("ReportNum: %s",reportNum)
+                    logging.info("problem: %s,  wildcard: %s",problem, wildcard)
                   
                   if locality != city:
                     continue
@@ -424,6 +485,16 @@ while finished == 0:
                     #if debug == 1:
                     #logging.info("No wildcard set or found match for problem: %s",problem)
                       
+                    displayAddress = address1.lstrip(' ')
+
+                    if showMap == True:
+                      displayAddress = ' <a href="https://www.google.com/maps/place/' + \
+                      '+'.join(displayAddress.split(' ')) + '">' + address1.lstrip(' ') + '</a>'
+
+                      #pdb.set_trace()
+
+                    #print ">>>> displayAddress: ",displayAddress
+
                     PROBLEMBODY="<h4>Pinellas County Sheriff's Office call problem alert hit:</h4></br></br>" \
                     "<table border=\"1\" cellpadding=\"10\">" \
                     "<tr><td>{}</td><td>{}</td></tr>" \
@@ -434,8 +505,11 @@ while finished == 0:
                     "</table>".format("Report Num:",reportNum.lstrip(' '),
                                       "Problem:", problem.lstrip(' '),
                                       "Locality:", locality.lstrip(' '),
-                                      "Address:", address1.lstrip(' '),
+                                      "Address:", displayAddress,
                                       "Occurred at:", occurredAt.lstrip(' '))
+
+                  #print ">>>> ",PROBLEMBODY
+                  #print "\n"
 
                   if problemHit == 1:
                     BODYTEXT += "\n\n" + PROBLEMBODY
@@ -497,7 +571,7 @@ while finished == 0:
                     msg.attach(mimeData)
                     
                     if verbose == 1:
-                      logging.info("Sending email to %s Subject: %s, problem: %s",row[2], SUBJECT, problem)
+                      logging.info("Sending email to %s \n\tSubject: %s, \n\tproblem: %s",row[2], SUBJECT, problem)
                       #pdb.set_trace()
 
                     if debug == 1:
@@ -512,7 +586,8 @@ while finished == 0:
                     server.sendmail(FROM, [TO], msg.as_string())
                     server.quit()
 
-                    logging.info("Finished sending...")
+                    if debug == 1:
+                      logging.info("Finished sending...")
 
                     totalEmailsSent += 1
                     emailsSent += 1
@@ -525,46 +600,58 @@ while finished == 0:
             numDups += 1
 
     if verbose == 1: 
-      print "Num found this pass: ",numFound
+      logging.info("Num found this pass: %d" % (numFound))
 
       t = time.localtime()
       
-      logging.info("Finished pass %s at %02d:%02d:%02d, sleeping %s seconds" % (run, t.tm_hour, t.tm_min, t.tm_sec, delay))
-      logging.info("Num entries: %s, Num dups: %s, emails sent: %s (total emails: %s)",numEntries,numDups,emailsSent,totalEmailsSent)
+      elapsedTime = thisTime - startTime
+
+      if verbose == 1:
+        logging.info("Finished pass %s at %02d:%02d:%02d, sleeping %s seconds, uptime: %s" % (run, t.tm_hour, t.tm_min, t.tm_sec, delay, elapsedTime))
+        logging.info("Num entries: %s, Num dups: %s, emails sent: %s (total emails: %s)",numEntries,numDups,emailsSent,totalEmailsSent)
 
     if dumpTable == 1:
         logging.info(masterTable)
 
-    logging.info("before masterTable size: %s",len(masterTable))
+    if debug == 1:
+      logging.info("before masterTable size: %s",len(masterTable))
     
     if numEntries > maxEntries:
       firstEntry = numEntries - maxEntries
 
       keyList = list()
 
-      logging.info("Checking old keys, firstEntry = %s",firstEntry)
+      if debug == 1:
+        logging.info("Checking old keys, firstEntry = %s",firstEntry)
       
       # now iterate over both lists, and save a list of all keys that have aged out
       for key in keyTable:
         if keyTable[key] <= firstEntry:
-          logging.info("Storing key %s",key)
+          if debug == 1:
+            logging.info("Storing key %s",key)
           keyList.append(key)
 
-      logging.info("Deleting keys now...")
+      if debug == 1:
+        logging.info("Deleting keys now...")
       
       for item in keyList:
-          logging.info("deleting oldest key[s] item: %s",item)
+          if debug == 1:
+            logging.info("deleting oldest key[s] item: %s",item)
           del keyTable[item]
           del masterTable[item]
 
-    logging.info("after masterTable size: %s",len(masterTable))
+    if debug == 1:
+      logging.info("after masterTable size: %s",len(masterTable))
       
     run = run + 1
     
     if maxIter <> 0:
       maxIter = maxIter + 1
 
-    time.sleep(float(delay))
+    try:
+      time.sleep(float(delay))
+    except IOError as e:
+      pass     
 
     if (maxIter <> 0) and (run >= maxIter):
       finished = 1
