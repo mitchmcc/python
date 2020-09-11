@@ -9,6 +9,7 @@
 #   01.00.12      12/08/17  mjm     Started adding 'calls' database support
 #   01.00.13      01/19/18  mjm     Added link to Google map
 #   01.00.14      02/12/18  mjm     Added list of problems to not send email for
+#   01.00.15      09/10/20  mjm     Updates for Python3
 #
 #------------------------------------------------------------------------------------------------
 
@@ -74,7 +75,7 @@ def usage():
   logging.info("  -c  Save data as csv file")
   logging.info("  -h  logging.info(this help message")
 
-version = "01.00.14"
+version = "01.00.15"
 
 dumpTable = 0
 delay =   300
