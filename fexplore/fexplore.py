@@ -5,7 +5,7 @@
 #
 #   Version        Date     Who     Description
 #
-#   01.00.00     09/29/20  	mjm    	Initial version
+#   01.00.00     10/02/20  	mjm    	Initial version
 # 
 #------------------------------------------------------------------------------------------------
 import os
@@ -14,8 +14,6 @@ import glob
 import getopt
 import pdb
 
-#path = r'/users/mitch/Documents/images/birds/work area/**/*.jpg'
-#path = r'/users/mitch/**/*.exe'
 path = None
 
 total_skipped = 0
@@ -31,7 +29,7 @@ debug = False
 def usage():
   print("Usage:")
   print("  -p  <path> Starting path to search")
-  print("  -e  <extension> File extension to search for")
+  print("  -e  <extension> File extension to search for, e.g. 'exe', 'jpg', 'bin'")
   print("  -r  Enable recursive search")
   print("  -d  Enable debug")
   print("  -v  Enable verbose")
@@ -97,16 +95,22 @@ if file_ext == None:
 if path == None:
 	print("ERROR: no path set, use -p option")
 	sys.exit(2)
-else:
-	if recurse:
-		# make sure no ending slash was entered
-		path = path.rstrip('/')
-		path += "/**/*." + file_ext
-		
-		if debug:
-			print("New value for recursive path: ",path)
+
+# Make sure it really exists
+
+if not os.path.isdir(path):
+	print("ERROR: path '%s' was not found" % (path))
+	sys.exit(2)
+
+if recurse:
+	# make sure no ending slash was entered
+	path = path.rstrip('/')
+	path += "/**/*." + file_ext
+	
+	if debug:
+		print("New value for recursive path: ",path)
 			
-pdb.set_trace()
+#pdb.set_trace()
 
 for exe in glob.glob(path,recursive=True):
 	total_files += 1
