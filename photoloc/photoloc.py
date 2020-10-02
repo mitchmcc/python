@@ -5,7 +5,7 @@
 #
 #	Version		   Date		Who		Description
 #
-#	01.00.00	  09/19/20	mjm		Initial version
+#	01.00.00	  10/02/20	mjm		Initial version
 #
 #
 # ------------------------------------------------------------------------------------------------
@@ -52,8 +52,9 @@ def get_address_by_location(latitude, longitude, language="en"):
 def usage():
     print("Usage:")
     print("    -p  <path> Starting path to search")
+    print(r"        e.g.  -p \"C:\Users\Pugsley\Downloads")
     print("    -k  <keyword> Keyword to search for in file path (case insensitive)")
-    print("    -d  Enable debug")
+    print("    -d  Enable debug.  Note: may set debug breakpoints.")
     print("    -v  Enable verbose")
     print("    -h  Print(this help message")
 
@@ -70,9 +71,7 @@ total_images = 0
 total_exif = 0
 total_lat_long = 0
 search_hits = 0
-# start_dir = r'C:\Users\mitch\Documents\images\Forensics'
-start_dir = r'C:\Users\mitch\Test'
-# start_dir = None
+start_dir = None
 keyword_hit = False
 
 try:
@@ -113,6 +112,19 @@ for o, a in opts:
 if debug:
     pdb.set_trace()
 
+# Make sure a starting path was set
+
+if start_dir == None:
+	print("ERROR: no starting directory path set")
+	usage()
+	sys.exit(2)
+
+# Make sure it really exists
+
+if not os.path.isdir(start_dir):
+	print("ERROR: path '%s' was not found" % (start_dir))
+	sys.exit(2)
+
 app = Nominatim(user_agent="tutorial")
 
 for subdirectories, directories, files in os.walk(start_dir):
@@ -143,7 +155,7 @@ for subdirectories, directories, files in os.walk(start_dir):
                 if my_image.has_exif:
                     total_exif += 1
                     #pdb.set_trace()
-                    if debug:
+                    if verbose:
                         print("\nFound Exif data for file: ", file_loc)
 
                     if hasattr(my_image, 'gps_latitude') and hasattr(my_image, 'gps_latitude_ref'):
